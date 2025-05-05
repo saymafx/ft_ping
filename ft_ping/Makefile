@@ -10,6 +10,10 @@ all: $(NAME)
 $(NAME): $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $(NAME)
 
+	@echo "Setting SUID bit for root privileges"
+	@sudo chown root $(NAME)
+	@sudo chmod u+s $(NAME)
+
 %.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 

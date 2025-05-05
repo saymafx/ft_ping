@@ -5,17 +5,19 @@ void send_ping(t_ping *ping)
     ping->sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
     ping->icmp.checksum = 0;
     ping->icmp.seq = ping->sequence;
-    if (ping->addr.sin_addr.s_addr == 0) {
+    if (ping->addr.sin_addr.s_addr == 0)
+    {
         fprintf(stderr, "Adresse IP non initialisée\n");
         exit(EXIT_FAILURE);
     }
 
-    if (ping->sockfd < 0) {
+    if (ping->sockfd < 0)
+    {
         perror("Erreur lors de la création du socket");
         free(ping->target);
         exit(EXIT_FAILURE);
     }
-    ping->icmp.checksum = calculate_checksum(&ping->icmp, sizeof(t_icmp));
+    ping->icmp.checksum = calculate_icmp_checksum((uint8_t *)&ping->icmp, sizeof(t_icmp));
     int bytes_sent = sendto(ping->sockfd, &ping->icmp, sizeof(t_icmp), 0, (struct sockaddr *)&ping->addr, sizeof(ping->addr));
     gettimeofday(&ping->start, NULL);
     if (bytes_sent < 0)
@@ -31,7 +33,7 @@ void send_ping(t_ping *ping)
 
 void receive_ping(t_ping *ping)
 {
-    timeout.tv_sec = 1;  
+    timeout.tv_sec = 1;
     timeout.tv_usec = 0;
     char response[64];
 
@@ -46,40 +48,73 @@ void receive_ping(t_ping *ping)
     }
     if (n < 64)
     {
-        printf("%zd %lu", n, sizeof(t_icmp));
-        fprintf(stderr, "Erreur : paquet ICMP trop court\n");
+        fprintf(stderr, "Erreur : paquet ICMP trop court (%zd bytes)\n", n);
         return;
     }
+
     uint8_t *ip_header = (uint8_t *)response;
     uint8_t ihl = ip_header[0] & 0x0F;
-    
     uint8_t header_length = ihl * 4;
-    
-    if (header_length < 20) {
+
+    if (header_length < 20)
+    {
         fprintf(stderr, "Erreur : en-tête IP invalide\n");
         return;
     }
+
     t_icmp *icmp_header = (t_icmp *)(response + header_length);
+
     if (icmp_header->type != ICMP_ECHOREPLY)
     {
         if (ping->verb)
             fprintf(stderr, "Reçu ICMP type %d, non-echo reply\n", icmp_header->type);
         return;
     }
+
     if (icmp_header->id != ping->icmp.id)
     {
         if (ping->verb)
-            fprintf(stderr, "ID ICMP incorrect (reçu: %d, attendu: %d)\n", 
+            fprintf(stderr, "ID ICMP incorrect (reçu: %d, attendu: %d)\n",
                     icmp_header->id, ping->icmp.id);
         return;
     }
+
     if (icmp_header->seq != ping->sequence - 1)
     {
         if (ping->verb)
-            fprintf(stderr, "Séquence ICMP incorrecte (reçu: %d, attendu: %d)\n", 
+            fprintf(stderr, "Séquence ICMP incorrecte (reçu: %d, attendu: %d)\n",
                     icmp_header->seq, ping->sequence - 1);
         return;
     }
+
+    size_t icmp_length = n - header_length;
+    uint16_t received_checksum = icmp_header->checksum;
+    if (ping->verb)
+    {
+        printf("Taille paquet ICMP: %zu octets\n", icmp_length);
+        printf("Type: %d, Code: %d, ID: %d, Seq: %d, Checksum: 0x%x\n",
+               icmp_header->type, icmp_header->code,
+               icmp_header->id, icmp_header->seq, received_checksum);
+    }
+
+    uint16_t checksum_backup = icmp_header->checksum;
+    icmp_header->checksum = 0;
+    uint16_t calculated_checksum = calculate_icmp_checksum((uint8_t *)icmp_header, icmp_length);
+    icmp_header->checksum = checksum_backup;
+
+    if (ping->verb)
+        printf("Reçu: 0x%x, Calculé: 0x%x\n", received_checksum, calculated_checksum);
+
+    if (calculated_checksum != received_checksum)
+    {
+        if (ping->verb)
+        {
+            fprintf(stderr, "Checksum incorrect (diff=0x%x), paquet accepté quand même\n",
+                    (unsigned int)(received_checksum - calculated_checksum));
+        }
+    }
+    else if (ping->verb)
+        printf("Checksum vérifié avec succès\n");
 
     gettimeofday(&ping->end, NULL);
     double rtt = calculate_rtt(&ping->start, &ping->end);
@@ -88,9 +123,12 @@ void receive_ping(t_ping *ping)
         ping->stats.rtt_min = rtt;
     if (rtt > ping->stats.rtt_max)
         ping->stats.rtt_max = rtt;
-    printf("%zi bytes from %s : id=%d, seq=%d, time=%fms\n",n , ping->target, icmp_header->id, icmp_header->seq, rtt);
+
+    printf("%zi bytes from %s : id=%d, seq=%d, time=%fms\n",
+           n, ping->target, icmp_header->id, icmp_header->seq, rtt);
     ping->stats.packets_received++;
 }
+
 
 void setup_ping(t_ping *ping, char *target) 
 {

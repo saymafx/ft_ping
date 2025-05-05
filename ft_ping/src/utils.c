@@ -8,20 +8,29 @@ double calculate_rtt(struct timeval *start, struct timeval *end)
     return (sec * 1000.0) + (usec / 1000.0);
 }
 
-
-
-uint16_t calculate_checksum(void *buffer, int length) {
-    uint16_t *data = buffer;
+uint16_t calculate_icmp_checksum(uint8_t *data, int length)
+{
     uint32_t sum = 0;
+    int i;
 
-    for (int i = 0; i < length / 2; i++)
-        sum += data[i];
-
-    if (length % 2)
-        sum += ((uint8_t *)buffer)[length - 1];
-
-    sum = (sum & 0xFFFF) + (sum >> 16);
-    return ~sum;
+    if ((uintptr_t)data & 1)
+    {
+        for (i = 0; i < length - 1; i += 2)
+            sum += (data[i] << 8) | data[i+1];
+        if (length & 1)
+            sum += data[length-1] << 8;
+    } 
+    else 
+    {
+        uint16_t *data16 = (uint16_t *)data;
+        for (i = 0; i < length / 2; i++)
+            sum += data16[i];
+        if (length & 1)
+            sum += data[length-1];
+    }
+    while (sum >> 16)
+        sum = (sum & 0xFFFF) + (sum >> 16);
+    return (uint16_t)~sum;
 }
 
 void handle_signal(int signal)
@@ -49,7 +58,8 @@ void resolve_hostname(t_ping *ping)
         return ;
     }
     status = getaddrinfo(ping->target, NULL, &hints, &res);
-    if (status != 0) {
+    if (status != 0)
+    {
         fprintf(stderr, "Erreur de résolution DNS pour %s : %s\n",
                 ping->target, gai_strerror(status));
         exit(EXIT_FAILURE);

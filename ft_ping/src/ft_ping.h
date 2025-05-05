@@ -47,14 +47,13 @@ typedef struct s_ping {
     int sequence;
     struct timeval start;
     struct timeval end;
-    struct sockaddr_in addr; // Structure pour l'adresse cible
-    t_stats stats;         // Structure contenant les statistiques
-    t_icmp icmp;         // Structure ICMP (basée sur la norme RFC 792)
-    uint16_t pid;           // PID = identifiant ICMP
+    struct sockaddr_in addr;
+    t_stats stats;
+    t_icmp icmp;
+    uint16_t pid;
 } t_ping;
 
 extern volatile sig_atomic_t stop_flag;
-uint16_t calculate_checksum(void *b, int len);
 void send_ping(t_ping *ping);
 void receive_ping(t_ping *ping);
 double calculate_rtt(struct timeval *start, struct timeval *end);
@@ -64,5 +63,6 @@ void resolve_hostname(t_ping *ping);
 void print_statistics(t_ping *ping);
 void print_message(t_ping *ping);
 void print_usage(void);
+uint16_t calculate_icmp_checksum(uint8_t *data, int length);
 
 #endif
