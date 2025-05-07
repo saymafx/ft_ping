@@ -1,4 +1,5 @@
 #include "ft_ping.h"
+struct timeval timeout;
 
 void send_ping(t_ping *ping)
 {

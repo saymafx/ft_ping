@@ -14,12 +14,11 @@
 #include <signal.h>
 #include <netinet/ip.h>
 #include <errno.h>
+#include <stdint.h>
 
 #define PACKET_SIZE 64
 #define ICMP_ECHO 8
 #define ICMP_ECHOREPLY 0
-
-struct timeval timeout;
 
 // Structure ICMP (basée sur la norme RFC 792)
 typedef struct s_icmp {
