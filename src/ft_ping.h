@@ -19,7 +19,8 @@
 #define ICMP_ECHO 8
 #define ICMP_ECHOREPLY 0
 
-struct timeval timeout;
+extern struct timeval timeout;
+
 
 // Structure ICMP (basée sur la norme RFC 792)
 typedef struct s_icmp {

@@ -1,5 +1,7 @@
 #include "ft_ping.h"
 
+struct timeval timeout = {1, 0};
+
 void send_ping(t_ping *ping)
 {
     ping->icmp.checksum = 0;
@@ -32,8 +34,9 @@ void send_ping(t_ping *ping)
 
 void receive_ping(t_ping *ping)
 {
-    timeout.tv_sec = 1;
-    timeout.tv_usec = 0;
+
+    // timeout.tv_sec = 1;
+    // timeout.tv_usec = 0;
     char response[1024];
 
     ssize_t n = recvfrom(ping->sockfd, response, sizeof(response), 0, NULL, NULL);
